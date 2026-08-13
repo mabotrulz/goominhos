@@ -21,6 +21,12 @@
     touch-action: none; overscroll-behavior: none;
   }
   .hidden { display: none !important; }
+  #buildTag {
+    position: fixed; right: 8px; bottom: calc(6px + env(safe-area-inset-bottom)); z-index: 450;
+    font-size: 11px; font-weight: 800; color: rgba(234,255,208,0.85);
+    background: rgba(14,36,23,0.78); border: 1px solid rgba(174,234,110,0.6);
+    padding: 3px 7px; border-radius: 10px; pointer-events: none;
+  }
 
   .overlay {
     position: fixed; inset: 0; z-index: 300;
@@ -141,6 +147,8 @@
 </style>
 </head>
 <body>
+
+<div id="buildTag">v2026.08.13-2</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -369,6 +377,7 @@ function finishDrag() {
     return;
   }
   if (g.state !== 'drag') return;
+  Body.setStatic(g.body, false);
   const p = g.body.position;
   const near = structuralGoos()
     .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
@@ -404,6 +413,7 @@ canvas.addEventListener('pointerdown', e => {
   lastActivity = performance.now();
   if (g.state === 'free') {
     g.state = 'drag'; drag = { g, moved: false, pointerId: e.pointerId };
+    Body.setStatic(g.body, true);
     Body.setVelocity(g.body, { x: 0, y: 0 }); Body.setAngularVelocity(g.body, 0);
     sfxGrab();
   } else {
