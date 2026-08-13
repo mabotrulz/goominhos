@@ -26,7 +26,7 @@ LEVELS = '/home/hermes/goominhos/levels'; os.makedirs(LEVELS, exist_ok=True)
 # decor: flat shapes the painter will turn into scenery (never boundaries)
 LEVELS_DATA = [
  dict(id=1, name='A Ponte', intro='Os Goominhos querem chegar ao cano! Arrasta-os e constrói uma ponte sobre o desfiladeiro!',
-      goos=dict(basic=14), target=4, spawn=[300, 540], pipe=[1330, 545, 'down'],
+      goos=dict(basic=22), target=6, spawn=[300, 540], pipe=[1330, 545, 'down'],
       terrain=[[[0, 620], [550, 620], [560, 900], [0, 900]],
                [[1050, 600], [1600, 600], [1600, 900], [1040, 900]]],
       decor=[('sun', [170, 140, 70]), ('cloud', [620, 150, 90]), ('cloud', [1250, 110, 70]),

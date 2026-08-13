@@ -323,7 +323,13 @@ function makeGoo(type, x, y, state) {
   const b = Bodies.circle(x, y, GOO_R, {
     density: T.density, friction: 0.6, restitution: 0.05, label: 'goo',
   });
-  const g = { body: b, type, state, links: [], welds: [], blink: Math.random() * 4000, wob: Math.random() * 6.28 };
+  const g = {
+    body: b, type, state, links: [], welds: [],
+    blink: Math.random() * 4000, wob: Math.random() * 6.28,
+    aiDir: Math.random() < 0.5 ? -1 : 1,
+    aiFlipAt: performance.now() + 900 + Math.random() * 1600,
+    aiHopAt: performance.now() + 700 + Math.random() * 1800,
+  };
   b.gooRef = g;
   goos.push(g); Composite.add(engine.world, b);
   return g;
@@ -428,7 +434,24 @@ canvas.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.pointerId) return;
   const p = toWorld(e);
   if (drag.structTap) {
-    if (Math.hypot(p.x - drag.sx, p.y - drag.sy) > 26) { drag = null; return; }
+    const movedDist = Math.hypot(p.x - drag.sx, p.y - drag.sy);
+    if (movedDist > 20) {
+      // drag-attached behavior: detach from structure and continue dragging this goo
+      const anchors = structuralGoos().filter(s => s.welds.length).length;
+      if (drag.g.welds.length && anchors <= 2) {
+        // keep minimum anchors alive; ignore this move
+        return;
+      }
+      removeGooLinks(drag.g);
+      drag.g.state = 'drag';
+      drag.structTap = false;
+      drag.moved = true;
+      Body.setStatic(drag.g.body, true);
+      Body.setPosition(drag.g.body, { x: p.x, y: p.y });
+      Body.setVelocity(drag.g.body, { x: 0, y: 0 });
+      sfxGrab();
+      lastActivity = performance.now();
+    }
     return;
   }
   drag.moved = true;
@@ -497,10 +520,22 @@ function tick(now) {
         b.position.y > level.wind.y0 && b.position.y < level.wind.y1 && g.state !== 'free') {
       Body.applyForce(b, b.position, { x: level.wind.fx * b.mass, y: 0 });
     }
-    // free goos: gentle wander back toward pen
-    if (g.state === 'free' && !drag) {
-      if (b.position.y > WH - 60 && Math.abs(b.velocity.x) < 0.4 && Math.random() < 0.006) {
-        Body.applyForce(b, b.position, { x: (Math.random() - 0.5) * 0.0006 * b.mass, y: -0.0011 * b.mass });
+    // free goos: walk around and hop until connected (World-of-Goo style)
+    if (g.state === 'free' && (!drag || drag.g !== g)) {
+      if (t0 > g.aiFlipAt) {
+        g.aiDir *= -1;
+        g.aiFlipAt = t0 + 900 + Math.random() * 1900;
+      }
+      const edge = 70;
+      if (b.position.x < edge) g.aiDir = 1;
+      if (b.position.x > WW - edge) g.aiDir = -1;
+      const walkForce = (g.type === 'heavy') ? 0.00022 : 0.00035;
+      Body.applyForce(b, b.position, { x: g.aiDir * walkForce * b.mass, y: 0 });
+      const nearGround = b.position.y > WH - 190;
+      if (nearGround && t0 > g.aiHopAt && Math.abs(b.velocity.y) < 1.2) {
+        const hop = (g.type === 'heavy') ? -0.00115 : (g.type === 'balloon' ? -0.00155 : -0.00135);
+        Body.applyForce(b, b.position, { x: 0, y: hop * b.mass });
+        g.aiHopAt = t0 + 700 + Math.random() * 1700;
       }
     }
     // fell off the world
