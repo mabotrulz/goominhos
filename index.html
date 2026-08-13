@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-5</div>
+<div id="buildTag">v2026.08.13-6</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -390,21 +390,41 @@ function finishDrag() {
   const p = g.body.position;
   const near = structuralGoos()
     .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
-    .filter(o => o.d < LINK_DIST + GOO_R + 18)
+    .filter(o => o.d < LINK_DIST + GOO_R + 42)
     .sort((a, b) => a.d - b.d);
   if (near.length === 0) {
     g.state = 'free'; // drop back
     return;
   }
   g.state = 'struct';
+
+  // link strategy: first nearest, second preferably opposite direction
   let made = 0;
+  let firstNode = null;
   for (const o of near) {
-    if (made >= 2) break;
-    if (addLink(g, o.s)) made++;
+    if (addLink(g, o.s)) { made++; firstNode = o.s; break; }
   }
   if (made === 0) {
     g.state = 'free';
     return;
+  }
+  if (made < 2 && firstNode) {
+    const fx = firstNode.body.position.x - p.x;
+    const fy = firstNode.body.position.y - p.y;
+    const fl = Math.hypot(fx, fy) || 1;
+    const ranked = near
+      .filter(o => o.s !== firstNode)
+      .map(o => {
+        const vx = o.s.body.position.x - p.x;
+        const vy = o.s.body.position.y - p.y;
+        const vl = Math.hypot(vx, vy) || 1;
+        const cos = (fx * vx + fy * vy) / (fl * vl); // -1 = opposite, +1 = same direction
+        return { o, cos };
+      })
+      .sort((a, b) => (a.cos - b.cos) || (a.o.d - b.o.d));
+    for (const r of ranked) {
+      if (addLink(g, r.o.s)) { made++; break; }
+    }
   }
   // sticky: weld if touching terrain
   if (g.type === 'sticky') {
