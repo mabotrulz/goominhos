@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-3</div>
+<div id="buildTag">v2026.08.13-4</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -520,20 +520,38 @@ function tick(now) {
         b.position.y > level.wind.y0 && b.position.y < level.wind.y1 && g.state !== 'free') {
       Body.applyForce(b, b.position, { x: level.wind.fx * b.mass, y: 0 });
     }
-    // free goos: walk around and hop until connected (World-of-Goo style)
+    // free goos: lively but NOT suicidal — they roam near spawn and avoid cliff dives
     if (g.state === 'free' && (!drag || drag.g !== g)) {
+      const sx = level.spawn[0], sy = level.spawn[1];
+      const penHalf = 185;
+      const minX = Math.max(65, sx - penHalf), maxX = Math.min(WW - 65, sx + penHalf);
+
+      // random personality flips, but keep them inside a safe roam band
       if (t0 > g.aiFlipAt) {
         g.aiDir *= -1;
         g.aiFlipAt = t0 + 900 + Math.random() * 1900;
       }
-      const edge = 70;
-      if (b.position.x < edge) g.aiDir = 1;
-      if (b.position.x > WW - edge) g.aiDir = -1;
-      const walkForce = (g.type === 'heavy') ? 0.00022 : 0.00035;
-      Body.applyForce(b, b.position, { x: g.aiDir * walkForce * b.mass, y: 0 });
-      const nearGround = b.position.y > WH - 190;
-      if (nearGround && t0 > g.aiHopAt && Math.abs(b.velocity.y) < 1.2) {
-        const hop = (g.type === 'heavy') ? -0.00115 : (g.type === 'balloon' ? -0.00155 : -0.00135);
+      if (b.position.x < minX + 20) g.aiDir = 1;
+      if (b.position.x > maxX - 20) g.aiDir = -1;
+
+      // check if there's terrain beneath soon; if not, urgently steer back toward spawn
+      const hasSupportSoon = terrainBodies.some(t =>
+        b.position.x >= t.bounds.min.x - 8 && b.position.x <= t.bounds.max.x + 8 &&
+        b.position.y <= t.bounds.min.y && (t.bounds.min.y - b.position.y) < 135
+      );
+
+      const towardSpawn = Math.sign(sx - b.position.x) || 1;
+      const walkForce = (g.type === 'heavy') ? 0.00020 : 0.00033;
+      if (!hasSupportSoon) {
+        Body.applyForce(b, b.position, { x: towardSpawn * 0.00095 * b.mass, y: -0.00065 * b.mass });
+      } else {
+        Body.applyForce(b, b.position, { x: g.aiDir * walkForce * b.mass, y: 0 });
+      }
+
+      // small hops around platform only (don't keep climbing forever)
+      const nearGroundBand = b.position.y > sy - 35 && b.position.y < sy + 160;
+      if (nearGroundBand && t0 > g.aiHopAt && Math.abs(b.velocity.y) < 1.2) {
+        const hop = (g.type === 'heavy') ? -0.00105 : (g.type === 'balloon' ? -0.00135 : -0.00120);
         Body.applyForce(b, b.position, { x: 0, y: hop * b.mass });
         g.aiHopAt = t0 + 700 + Math.random() * 1700;
       }
