@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="1600" height="900" fill="#bfe3f2"/>
+<polygon class="boundary" points="0,640 600,640 610,900 0,900" fill="#7a9b4d" stroke="#5b7a36" stroke-width="6"/>
+<polygon class="boundary" points="1240,630 1600,630 1600,900 1230,900" fill="#7a9b4d" stroke="#5b7a36" stroke-width="6"/>
+<g fill="#ffffff"><ellipse cx="200" cy="130" rx="70" ry="38.5"/><ellipse cx="151.0" cy="144.0" rx="42.0" ry="28.0"/><ellipse cx="249.0" cy="144.0" rx="42.0" ry="28.0"/></g>
+<g fill="#ffffff"><ellipse cx="900" cy="100" rx="90" ry="49.50000000000001"/><ellipse cx="837.0" cy="118.0" rx="54.0" ry="36.0"/><ellipse cx="963.0" cy="118.0" rx="54.0" ry="36.0"/></g>
+<path d="M1000,300 q12,-14 24,0 q12,-14 24,0 M1070,330 q10,-12 20,0 q10,-12 20,0" stroke="#455a64" stroke-width="5" fill="none"/>
+<circle cx="200" cy="626" r="12" fill="#ff8a80"/><circle cx="226" cy="630" r="10" fill="#f48fb1"/>
+<circle cx="1450" cy="616" r="12" fill="#ff8a80"/><circle cx="1476" cy="620" r="10" fill="#f48fb1"/>
+<rect x="88" y="530" width="24" height="110" fill="#6d4a21"/><circle cx="100" cy="500" r="60" fill="#4caf50"/>
+<circle class="pipe" cx="1420" cy="555" r="34" fill="#37474f" stroke="#263238" stroke-width="8"/>
+<circle class="spawn" cx="280" cy="560" r="10" fill="#e91e63"/>
+</svg>

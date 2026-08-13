@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1c3a24">
+<title>Goominhos — O Mundo Pegajoso</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟢</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe UI', cursive, sans-serif;
+    background: #0e2417; color: #fff; user-select: none; -webkit-user-select: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+  .hidden { display: none !important; }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 300;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #0e2417, #1c4a2a);
+  }
+  .big-btn {
+    font-family: inherit; font-size: clamp(18px, 4.6vw, 26px); font-weight: 900;
+    background: linear-gradient(135deg, #aeea6e, #5cb85c); color: #16330f;
+    border: none; border-radius: 20px; padding: 14px 40px; cursor: pointer;
+    box-shadow: 0 6px 0 #3e7a3e, 0 10px 24px rgba(0,0,0,0.4);
+  }
+  .big-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #3e7a3e; }
+
+  /* START */
+  #startOverlay h1 {
+    font-size: clamp(34px, 9vw, 60px); color: #aeea6e; text-align: center; line-height: 1.05;
+    text-shadow: 0 3px 0 #2e5b23, 0 8px 20px rgba(0,0,0,0.6); padding: 0 14px;
+  }
+  #startOverlay .sub { margin: 12px 0 30px; font-size: clamp(14px, 3.6vw, 19px); color: #d7f0c0; font-weight: 700; text-align: center; padding: 0 20px; }
+  #startOverlay .goo-face { font-size: 70px; animation: bob 2s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+  /* LEVEL SELECT */
+  #levelSelect { padding: 18px; gap: 12px; }
+  #levelSelect h2 { color: #aeea6e; font-size: clamp(22px, 5.5vw, 34px); text-shadow: 0 2px 0 #2e5b23; }
+  .lv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(96vw, 900px); }
+  .lv-card {
+    border: 3px solid #aeea6e; border-radius: 16px; overflow: hidden; cursor: pointer;
+    background: #12301c; padding: 0; font-family: inherit; position: relative;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5); transition: transform 0.12s;
+  }
+  .lv-card:active { transform: scale(0.95); }
+  .lv-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
+  .lv-card .lv-name { display: block; color: #eaffd0; font-weight: 900; font-size: clamp(11px, 2.8vw, 15px); padding: 6px 4px; text-align: center; }
+  .lv-card .lv-num {
+    position: absolute; top: 6px; left: 6px; background: rgba(14,36,23,0.85); color: #aeea6e;
+    border-radius: 10px; padding: 2px 9px; font-weight: 900; font-size: 14px;
+  }
+  .lv-card .lv-done { position: absolute; top: 6px; right: 6px; font-size: 20px; }
+  .lv-card.locked { filter: grayscale(0.9) brightness(0.55); pointer-events: auto; }
+
+  /* GAME */
+  #gameWrap { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: #0e2417; }
+  #gameWrap.active { display: flex; }
+  #gameCanvas { display: block; touch-action: none; }
+  #hud {
+    position: fixed; top: 8px; left: 8px; right: 8px; z-index: 20; display: none;
+    justify-content: space-between; align-items: center; pointer-events: none;
+  }
+  #hud.active { display: flex; }
+  .hud-pill {
+    background: rgba(14,36,23,0.82); border: 2px solid #aeea6e; color: #eaffd0;
+    border-radius: 14px; padding: 6px 14px; font-weight: 900; font-size: clamp(13px, 3.4vw, 17px);
+    pointer-events: auto;
+  }
+  button.hud-pill { cursor: pointer; font-family: inherit; }
+  #hudCenter { display: flex; gap: 8px; }
+
+  /* WIN / FAIL */
+  #msgOverlay { background: rgba(10,25,15,0.88); z-index: 310; }
+  #msgOverlay .box {
+    text-align: center; background: linear-gradient(135deg, #f2ffd9, #d9f2b8); color: #16330f;
+    border-radius: 24px; border: 4px solid #5cb85c; padding: 26px 34px; max-width: 88vw;
+    box-shadow: 0 16px 50px rgba(0,0,0,0.6); animation: popIn 0.45s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: none; opacity: 1; } }
+  #msgOverlay h2 { font-size: clamp(22px, 6vw, 32px); }
+  #msgOverlay .stars { font-size: 38px; margin: 8px 0; letter-spacing: 5px; }
+  #msgOverlay .msg { font-weight: 800; font-size: clamp(14px, 3.8vw, 18px); margin-bottom: 16px; }
+  #msgOverlay .row { display: flex; gap: 12px; justify-content: center; }
+  #msgOverlay .big-btn { font-size: clamp(15px, 4vw, 20px); padding: 12px 26px; }
+
+  .star-burst {
+    position: fixed; z-index: 390; font-size: 30px; pointer-events: none;
+    animation: starBurst 1.1s ease-out forwards;
+  }
+  @keyframes starBurst {
+    0% { transform: translate(0,0) scale(0.4); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1.3) rotate(200deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="startOverlay">
+  <div class="goo-face">🟢</div>
+  <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
+  <div class="sub">Constrói pontes, torres e escadas com bolinhas de goo!<br>Leva-os até ao cano mágico. 🕳️</div>
+  <button class="big-btn" id="startBtn">▶ COMEÇAR</button>
+</div>
+
+<div class="overlay hidden" id="levelSelect">
+  <h2>🗺️ Escolhe um nível!</h2>
+  <div class="lv-grid" id="lvGrid"></div>
+</div>
+
+<div id="gameWrap"><canvas id="gameCanvas"></canvas></div>
+<div id="hud">
+  <button class="hud-pill" id="homeBtn">← Níveis</button>
+  <div id="hudCenter">
+    <span class="hud-pill" id="hudLevel"></span>
+    <span class="hud-pill" id="hudPipe"></span>
+    <span class="hud-pill" id="hudGoos"></span>
+  </div>
+  <button class="hud-pill" id="retryBtn">↻</button>
+</div>
+
+<div class="overlay hidden" id="msgOverlay">
+  <div class="box">
+    <h2 id="msgTitle"></h2>
+    <div class="stars" id="msgStars"></div>
+    <div class="msg" id="msgText"></div>
+    <div class="row">
+      <button class="big-btn" id="msgBtnA"></button>
+      <button class="big-btn hidden" id="msgBtnB"></button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/matter.min.js"></script>
+<script>
+// ==================== AUDIO ====================
+let voice = null, audioCtx = null;
+function initAudio() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  pickVoice();
+}
+function pickVoice() {
+  if (!('speechSynthesis' in window)) return;
+  const vs = speechSynthesis.getVoices();
+  voice = vs.find(v => /pt(-|_)PT/i.test(v.lang)) || vs.find(v => /^pt/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = pickVoice;
+function speak(text, cb) {
+  if (!('speechSynthesis' in window)) { if (cb) cb(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'pt-PT'; if (voice) u.voice = voice;
+  u.rate = 0.97; u.pitch = 1.15;
+  if (cb) { u.onend = cb; u.onerror = cb; }
+  speechSynthesis.speak(u);
+}
+function tone(freq, dur, type, when, gain) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime + (when || 0);
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(gain || 0.12, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur);
+}
+const sfxGrab = () => tone(440, 0.07, 'triangle');
+const sfxAttach = () => { tone(520, 0.09, 'triangle'); tone(760, 0.12, 'triangle', 0.06); };
+const sfxPop = () => tone(300, 0.15, 'square', 0, 0.05);
+const sfxSuck = () => { tone(900, 0.3, 'sine', 0, 0.08); tone(600, 0.3, 'sine', 0.12, 0.08); tone(300, 0.35, 'sine', 0.24, 0.08); };
+const sfxWin = () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'sine', i * 0.13)); };
+
+// ==================== DATA ====================
+const WW = 1600, WH = 900, GOO_R = 26, LINK_DIST = 175;
+const TYPES = {
+  basic:   { color: '#7ed957', dark: '#3e8e2f', density: 0.0016, nome: 'Goominho' },
+  balloon: { color: '#ffd54f', dark: '#c79a1d', density: 0.0010, nome: 'Levinho' },
+  heavy:   { color: '#90a4ae', dark: '#4e6570', density: 0.0060, nome: 'Pesadão' },
+  sticky:  { color: '#f48fb1', dark: '#ad4a72', density: 0.0016, nome: 'Cola' },
+};
+let LEVELS = null;
+
+// ==================== STATE ====================
+let progress = { done: [false, false, false, false, false, false] };
+try { const p = JSON.parse(localStorage.getItem('goo_progress')); if (p && p.done && p.done.length === 6) progress = p; } catch (e) {}
+function saveProgress() { try { localStorage.setItem('goo_progress', JSON.stringify(progress)); } catch (e) {} }
+function unlocked(n) { return n === 0 || progress.done[n - 1]; }
+
+const { Engine, Bodies, Body, Composite, Constraint, Events } = Matter;
+let engine = null, level = null, levelIdx = 0;
+let goos = [], links = [], terrainBodies = [], pipe = null;
+let sucked = 0, gameState = 'menu'; // menu | play | won | lost
+let drag = null, particles = [], suckAnims = [];
+let idleTimer = 0, lastActivity = 0;
+
+// ==================== CANVAS ====================
+const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+let scale = 1, offX = 0, offY = 0;
+const bgImgs = {};
+function fitCanvas() {
+  const aw = window.innerWidth, ah = window.innerHeight;
+  scale = Math.min(aw / WW, ah / WH);
+  canvas.width = Math.round(WW * scale); canvas.height = Math.round(WH * scale);
+  canvas.style.width = canvas.width + 'px'; canvas.style.height = canvas.height + 'px';
+  offX = 0; offY = 0;
+}
+window.addEventListener('resize', fitCanvas);
+function toWorld(e) {
+  const r = canvas.getBoundingClientRect();
+  const cx = (e.clientX - r.left) / scale, cy = (e.clientY - r.top) / scale;
+  return { x: cx, y: cy };
+}
+
+// ==================== LEVEL BUILD ====================
+function loadLevel(idx) {
+  levelIdx = idx; level = LEVELS[idx];
+  engine = Engine.create({ enableSleeping: false });
+  engine.gravity.y = 1;
+  goos = []; links = []; particles = []; suckAnims = []; sucked = 0; drag = null;
+  terrainBodies = level.terrain.map(poly => {
+    const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
+    const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
+    const b = Bodies.fromVertices(cx, cy, [poly.map(p => ({ x: p[0], y: p[1] }))], { isStatic: true, friction: 0.9, label: 'terrain' });
+    return b;
+  });
+  Composite.add(engine.world, terrainBodies);
+  pipe = { x: level.pipe[0], y: level.pipe[1], dir: level.pipe[2] };
+
+  // starter structural goos, welded to ground at spawn
+  const [sx, sy] = level.spawn;
+  const g0 = makeGoo('basic', sx - 45, sy - 10, 'struct');
+  const g1 = makeGoo('basic', sx + 45, sy - 10, 'struct');
+  [g0, g1].forEach(g => {
+    const t = nearestTerrain(g.body.position.x, g.body.position.y);
+    if (t) weld(g, t);
+  });
+  addLink(g0, g1);
+  // free goos: resting on the ground near the spawn point
+  let i = 0;
+  for (const [type, count] of Object.entries(level.goos)) {
+    for (let k = 0; k < count; k++) {
+      const gx = Math.max(70, sx - 200) + (i % 6) * 68;
+      const gy = sy - 45 - Math.floor(i / 6) * 62;
+      makeGoo(type, gx, gy, 'free');
+      i++;
+    }
+  }
+  lastActivity = performance.now(); idleTimer = 0;
+  gameState = 'play';
+  document.getElementById('hudLevel').textContent = level.id + '. ' + level.name;
+  updateHud();
+  speak(level.intro);
+}
+function nearestTerrain(x, y) {
+  let best = null, bd = 1e9;
+  terrainBodies.forEach(t => {
+    const d = Math.hypot(t.position.x - x, t.position.y - y);
+    if (d < bd) { bd = d; best = t; }
+  });
+  return best;
+}
+function makeGoo(type, x, y, state) {
+  const T = TYPES[type];
+  const b = Bodies.circle(x, y, GOO_R, {
+    density: T.density, friction: 0.6, restitution: 0.05, label: 'goo',
+  });
+  const g = { body: b, type, state, links: [], welds: [], blink: Math.random() * 4000, wob: Math.random() * 6.28 };
+  b.gooRef = g;
+  goos.push(g); Composite.add(engine.world, b);
+  return g;
+}
+function addLink(ga, gb) {
+  if (ga === gb) return null;
+  if (ga.links.some(l => l.other === gb)) return null;
+  if (ga.links.length >= 4 || gb.links.length >= 4) return null;
+  const d = Math.hypot(ga.body.position.x - gb.body.position.x, ga.body.position.y - gb.body.position.y);
+  const c = Constraint.create({
+    bodyA: ga.body, bodyB: gb.body, length: Math.max(d, GOO_R * 1.4),
+    stiffness: 0.5, damping: 0.15,
+  });
+  Composite.add(engine.world, c);
+  const rec = { c, other: gb }; ga.links.push(rec);
+  gb.links.push({ c, other: ga });
+  links.push(c);
+  return c;
+}
+function weld(g, terrainBody, worldPoint) {
+  const wp = worldPoint || { x: g.body.position.x, y: g.body.position.y + GOO_R };
+  const c = Constraint.create({
+    bodyA: g.body, pointA: { x: 0, y: 0 },
+    bodyB: terrainBody, pointB: { x: wp.x - terrainBody.position.x, y: wp.y - terrainBody.position.y },
+    length: 4, stiffness: 0.9, damping: 0.2,
+  });
+  Composite.add(engine.world, c);
+  g.welds.push(c); links.push(c);
+}
+function removeGooLinks(g) {
+  g.links.slice().forEach(rec => {
+    Composite.remove(engine.world, rec.c);
+    links = links.filter(l => l !== rec.c);
+    rec.other.links = rec.other.links.filter(r => r.c !== rec.c);
+  });
+  g.links = [];
+  g.welds.slice().forEach(c => { Composite.remove(engine.world, c); links = links.filter(l => l !== c); });
+  g.welds = [];
+}
+function structuralGoos() { return goos.filter(g => g.state === 'struct'); }
+
+// ==================== INPUT ====================
+canvas.addEventListener('pointerdown', e => {
+  if (gameState !== 'play') return;
+  initAudio();
+  const p = toWorld(e);
+  const g = goos.find(g => (g.state === 'free' || g.state === 'struct') &&
+    Math.hypot(g.body.position.x - p.x, g.body.position.y - p.y) < GOO_R + 14);
+  if (!g) return;
+  e.preventDefault();
+  lastActivity = performance.now();
+  if (g.state === 'free') {
+    g.state = 'drag'; drag = { g, moved: false };
+    Body.setVelocity(g.body, { x: 0, y: 0 }); Body.setAngularVelocity(g.body, 0);
+    sfxGrab();
+  } else {
+    drag = { g, moved: false, structTap: true, sx: p.x, sy: p.y };
+  }
+}, { passive: false });
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const p = toWorld(e);
+  if (drag.structTap) {
+    if (Math.hypot(p.x - drag.sx, p.y - drag.sy) > 26) { drag = null; return; }
+    return;
+  }
+  drag.moved = true;
+  Body.setPosition(drag.g.body, { x: p.x, y: p.y });
+  Body.setVelocity(drag.g.body, { x: 0, y: 0 });
+  lastActivity = performance.now();
+});
+canvas.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const g = drag.g, wasTap = drag.structTap && !drag.moved;
+  drag = null;
+  if (gameState !== 'play') return;
+  if (wasTap && g.state === 'struct') {
+    // recall: pop back to free pool
+    if (g.welds.length && structuralGoos().filter(s => s.welds.length).length <= 2) { return; } // keep anchors
+    removeGooLinks(g); g.state = 'free';
+    Body.setVelocity(g.body, { x: (Math.random() - 0.5) * 4, y: -6 });
+    sfxPop();
+    return;
+  }
+  if (g.state !== 'drag') return;
+  const p = g.body.position;
+  const near = structuralGoos()
+    .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
+    .filter(o => o.d < LINK_DIST + GOO_R)
+    .sort((a, b) => a.d - b.d).slice(0, 2);
+  if (near.length === 0) {
+    g.state = 'free'; // drop back
+    return;
+  }
+  g.state = 'struct';
+  near.forEach(o => addLink(g, o.s));
+  // sticky: weld if touching terrain
+  if (g.type === 'sticky') {
+    terrainBodies.forEach(t => {
+      const d = Math.hypot(t.position.x - p.x, t.position.y - p.y);
+      if (d < 500 && Matter.Bounds.contains(t.bounds, { x: p.x, y: p.y + GOO_R })) weld(g, t);
+    });
+    stickyWeldNearby(g);
+  }
+  sfxAttach();
+  lastActivity = performance.now();
+});
+function stickyWeldNearby(g) {
+  // weld sticky goo to any terrain whose surface is close
+  const p = g.body.position;
+  terrainBodies.forEach(t => {
+    if (g.welds.length >= 2) return;
+    const dx = Math.max(t.bounds.min.x - p.x, 0, p.x - t.bounds.max.x);
+    const dy = Math.max(t.bounds.min.y - p.y, 0, p.y - t.bounds.max.y);
+    if (Math.hypot(dx, dy) < GOO_R + 26) {
+      const wp = { x: Math.min(Math.max(p.x, t.bounds.min.x), t.bounds.max.x), y: Math.min(Math.max(p.y, t.bounds.min.y), t.bounds.max.y) };
+      weld(g, t, wp);
+    }
+  });
+}
+
+// ==================== PHYSICS TICK ====================
+let acc = 0, lastT = 0;
+function tick(now) {
+  requestAnimationFrame(tick);
+  if (!engine || gameState === 'menu') return;
+  const dt = Math.min(33, now - lastT); lastT = now;
+  acc += dt;
+  while (acc > 16.6) {
+    Engine.update(engine, 16.6);
+    acc -= 16.6;
+  }
+  if (gameState !== 'play' && gameState !== 'won' && gameState !== 'lost') { render(now); return; }
+
+  const t0 = performance.now();
+  // sticky goos grab terrain on contact (checked periodically)
+  if (gameState === 'play' && Math.floor(t0 / 250) !== Math.floor((t0 - dt) / 250)) {
+    goos.forEach(g => {
+      if (g.type === 'sticky' && g.state === 'struct' && g.welds.length < 2) stickyWeldNearby(g);
+    });
+  }
+  goos.forEach(g => {
+    if (g.state === 'lost' || g.state === 'sucked') return;
+    const b = g.body;
+    // balloons lift (free ones hover in a band so they never escape)
+    if (g.type === 'balloon') {
+      if (g.state === 'free' && !drag) {
+        if (b.position.y > 240) Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00115 });
+        else Body.applyForce(b, b.position, { x: 0, y: b.mass * 0.0009 });
+      } else {
+        Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00115 });
+      }
+    }
+    // wind zone
+    if (level.wind && b.position.x > level.wind.x0 && b.position.x < level.wind.x1 &&
+        b.position.y > level.wind.y0 && b.position.y < level.wind.y1 && g.state !== 'free') {
+      Body.applyForce(b, b.position, { x: level.wind.fx * b.mass, y: 0 });
+    }
+    // free goos: gentle wander back toward pen
+    if (g.state === 'free' && !drag) {
+      if (b.position.y > WH - 60 && Math.abs(b.velocity.x) < 0.4 && Math.random() < 0.006) {
+        Body.applyForce(b, b.position, { x: (Math.random() - 0.5) * 0.0006 * b.mass, y: -0.0011 * b.mass });
+      }
+    }
+    // fell off the world
+    if (b.position.y > WH + 120 || b.position.x < -120 || b.position.x > WW + 120) {
+      loseGoo(g);
+    }
+    // pipe suck
+    if (g.state === 'struct' && gameState === 'play') {
+      const d = Math.hypot(b.position.x - pipe.x, b.position.y - pipe.y);
+      if (d < 58) suckGoo(g);
+    }
+  });
+  // idle fail detection
+  if (gameState === 'play') {
+    const free = goos.filter(g => g.state === 'free' || g.state === 'drag').length;
+    if (free === 0 && performance.now() - lastActivity > 3500 && sucked < level.target) {
+      gameState = 'lost';
+      showMsg('Ups!', '', 'Ficaste sem Goominhos! Não faz mal — tenta outra vez!', '↻ Outra vez', () => loadLevel(levelIdx), 'Níveis', showLevels);
+      speak('Ups! Ficaste sem Goominhos! Não faz mal, tenta outra vez!');
+    }
+  }
+  // particles
+  particles = particles.filter(p => now - p.t0 < p.life);
+  suckAnims = suckAnims.filter(s => now - s.t0 < 450);
+  render(now);
+}
+function loseGoo(g) {
+  g.state = 'lost';
+  removeGooLinks(g);
+  Composite.remove(engine.world, g.body);
+  sfxPop();
+  updateHud();
+}
+function suckGoo(g) {
+  g.state = 'sucked';
+  suckAnims.push({ x: g.body.position.x, y: g.body.position.y, t0: performance.now(), color: TYPES[g.type].color });
+  removeGooLinks(g);
+  Composite.remove(engine.world, g.body);
+  sucked++;
+  sfxSuck();
+  for (let i = 0; i < 6; i++) particles.push({ x: pipe.x, y: pipe.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, t0: performance.now(), life: 600, color: '#b2ff59' });
+  updateHud();
+  if (sucked >= level.target && gameState === 'play') {
+    gameState = 'won';
+    progress.done[levelIdx] = true; saveProgress();
+    sfxWin();
+    const last = levelIdx === LEVELS.length - 1;
+    setTimeout(() => {
+      showMsg(last ? '🏆 Goominhos salvos!' : '🎉 Nível completo!', '⭐⭐⭐',
+        last ? 'Salvaste os Goominhos de TODOS os mundos! És um mestre construtor!' : 'O cano mágico levou os Goominhos para casa!',
+        last ? 'Níveis' : 'Próximo →', () => { if (last) showLevels(); else loadLevel(levelIdx + 1); },
+        '↻ Repetir', () => loadLevel(levelIdx));
+      speak(last ? 'Incrível! Salvaste os Goominhos de todos os mundos! És um mestre construtor!' : 'Muito bem! O cano mágico levou os Goominhos para casa!');
+      starBurst();
+    }, 700);
+  }
+}
+function updateHud() {
+  const free = goos.filter(g => g.state === 'free' || g.state === 'drag').length;
+  document.getElementById('hudPipe').textContent = '🕳️ ' + sucked + '/' + level.target;
+  document.getElementById('hudGoos').textContent = '🟢 ' + free;
+}
+
+// ==================== RENDER ====================
+function render(now) {
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, WW, WH);
+  const bg = bgImgs[level.id];
+  if (bg && bg.complete) ctx.drawImage(bg, 0, 0, WW, WH);
+  else { ctx.fillStyle = '#bfe3f2'; ctx.fillRect(0, 0, WW, WH); }
+
+  // pipe swirl
+  if (pipe) {
+    ctx.save(); ctx.translate(pipe.x, pipe.y);
+    ctx.strokeStyle = 'rgba(178,255,89,0.75)'; ctx.lineWidth = 5;
+    for (let i = 0; i < 3; i++) {
+      const a = now / 500 + i * 2.1;
+      ctx.beginPath(); ctx.arc(0, 0, 46 - i * 10, a, a + 2.4); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // links
+  ctx.lineCap = 'round';
+  links.forEach(c => {
+    if (!c.bodyA || !c.bodyB) return;
+    const a = { x: c.bodyA.position.x + (c.pointA ? c.pointA.x : 0), y: c.bodyA.position.y + (c.pointA ? c.pointA.y : 0) };
+    const b = { x: c.bodyB.position.x + (c.pointB ? c.pointB.x : 0), y: c.bodyB.position.y + (c.pointB ? c.pointB.y : 0) };
+    ctx.strokeStyle = 'rgba(30,60,25,0.85)'; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  });
+  // drag preview
+  if (drag && !drag.structTap) {
+    const p = drag.g.body.position;
+    const near = structuralGoos()
+      .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
+      .filter(o => o.d < LINK_DIST + GOO_R).sort((a, b) => a.d - b.d).slice(0, 2);
+    ctx.setLineDash([10, 8]);
+    near.forEach(o => {
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(o.s.body.position.x, o.s.body.position.y); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.strokeStyle = near.length ? 'rgba(178,255,89,0.9)' : 'rgba(255,120,120,0.7)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(p.x, p.y, LINK_DIST * 0.5, 0, 7); ctx.stroke();
+  }
+  // goos
+  goos.forEach(g => {
+    if (g.state === 'lost' || g.state === 'sucked') return;
+    drawGoo(g, now);
+  });
+  // suck animations
+  suckAnims.forEach(s => {
+    const k = (performance.now() - s.t0) / 450;
+    const x = s.x + (pipe.x - s.x) * k, y = s.y + (pipe.y - s.y) * k;
+    const r = GOO_R * (1 - k * 0.9);
+    ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(x, y, Math.max(r, 2), 0, 7); ctx.fill();
+  });
+  // particles
+  particles.forEach(p => {
+    const k = (performance.now() - p.t0) / p.life;
+    ctx.globalAlpha = 1 - k;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x + p.vx * k * 30, p.y + p.vy * k * 30, 5 * (1 - k), 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+  // wind indicator
+  if (level.wind) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 3;
+    for (let i = 0; i < 5; i++) {
+      const wy = 150 + i * 150, ph = ((now / 900) + i * 0.3) % 1;
+      const wx = level.wind.x1 - ph * (level.wind.x1 - level.wind.x0);
+      ctx.beginPath(); ctx.moveTo(wx, wy); ctx.quadraticCurveTo(wx - 30, wy - 12, wx - 60, wy); ctx.stroke();
+    }
+  }
+}
+function drawGoo(g, now) {
+  const b = g.body, T = TYPES[g.type];
+  const wob = 1 + Math.sin(now / 300 + g.wob) * 0.05;
+  const r = GOO_R * (g.type === 'heavy' ? 1.18 : 1);
+  ctx.save(); ctx.translate(b.position.x, b.position.y); ctx.scale(wob, 2 - wob);
+  // body
+  ctx.fillStyle = T.color;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = T.dark; ctx.lineWidth = 3; ctx.stroke();
+  // shine
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.4, r * 0.28, r * 0.18, -0.6, 0, 7); ctx.fill();
+  // eyes
+  const blink = (now + g.blink) % 3800 < 130 ? 0.15 : 1;
+  const ex = r * 0.36, ey = -r * 0.12, er = r * 0.24;
+  const vx = Math.min(Math.max(b.velocity.x, -3), 3), vy = Math.min(Math.max(b.velocity.y, -3), 3);
+  [-ex, ex].forEach(x => {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(x, ey, er, er * blink, 0, 0, 7); ctx.fill();
+    if (blink > 0.5) {
+      ctx.fillStyle = '#222';
+      ctx.beginPath(); ctx.arc(x + vx, ey + vy * 0.6, er * 0.45, 0, 7); ctx.fill();
+    }
+  });
+  // type marks
+  if (g.type === 'balloon') {
+    ctx.strokeStyle = T.dark; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, r); ctx.quadraticCurveTo(4, r + 10, 0, r + 18); ctx.stroke();
+  } else if (g.type === 'sticky') {
+    ctx.fillStyle = T.dark;
+    [[-r * 0.5, r * 0.45], [0, r * 0.6], [r * 0.5, r * 0.45]].forEach(p => {
+      ctx.beginPath(); ctx.arc(p[0], p[1], 3.5, 0, 7); ctx.fill();
+    });
+  } else if (g.type === 'heavy') {
+    ctx.fillStyle = T.dark;
+    ctx.fillRect(-r * 0.35, r * 0.35, r * 0.7, 5);
+  }
+  ctx.restore();
+}
+
+// ==================== UI ====================
+function showMsg(title, stars, msg, btnA, cbA, btnB, cbB) {
+  document.getElementById('msgTitle').textContent = title;
+  document.getElementById('msgStars').textContent = stars;
+  document.getElementById('msgText').textContent = msg;
+  const A = document.getElementById('msgBtnA'), B = document.getElementById('msgBtnB');
+  A.textContent = btnA; A.onclick = () => { hideMsg(); cbA && cbA(); };
+  if (btnB) { B.classList.remove('hidden'); B.textContent = btnB; B.onclick = () => { hideMsg(); cbB && cbB(); }; }
+  else B.classList.add('hidden');
+  document.getElementById('msgOverlay').classList.remove('hidden');
+}
+function hideMsg() { document.getElementById('msgOverlay').classList.add('hidden'); }
+function starBurst() {
+  for (let i = 0; i < 12; i++) {
+    const s = document.createElement('div');
+    s.className = 'star-burst'; s.textContent = '⭐';
+    s.style.left = '50%'; s.style.top = '45%';
+    s.style.setProperty('--dx', (Math.random() * 400 - 200) + 'px');
+    s.style.setProperty('--dy', (Math.random() * 340 - 200) + 'px');
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 1200);
+  }
+}
+function showLevels() {
+  gameState = 'menu';
+  document.getElementById('gameWrap').classList.remove('active');
+  document.getElementById('hud').classList.remove('active');
+  const g = document.getElementById('lvGrid'); g.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const c = document.createElement('button');
+    const locked = !unlocked(i);
+    c.className = 'lv-card' + (locked ? ' locked' : '');
+    c.innerHTML = '<span class="lv-num">' + (i + 1) + '</span>' +
+      (progress.done[i] ? '<span class="lv-done">✅</span>' : '') +
+      '<img src="assets/bg' + lv.id + '.jpg" alt="">' +
+      '<span class="lv-name">' + (locked ? '🔒 ???' : lv.name) + '</span>';
+    c.onclick = () => {
+      if (locked) { sfxPop(); return; }
+      initAudio();
+      document.getElementById('levelSelect').classList.add('hidden');
+      document.getElementById('gameWrap').classList.add('active');
+      document.getElementById('hud').classList.add('active');
+      loadLevel(i);
+    };
+    g.appendChild(c);
+  });
+  document.getElementById('levelSelect').classList.remove('hidden');
+}
+document.getElementById('homeBtn').onclick = () => { speechSynthesis.cancel(); showLevels(); };
+document.getElementById('retryBtn').onclick = () => { speechSynthesis.cancel(); loadLevel(levelIdx); };
+document.getElementById('startBtn').onclick = () => {
+  initAudio();
+  document.getElementById('startOverlay').classList.add('hidden');
+  showLevels();
+  if (!progress.done.some(Boolean)) {
+    speak('Bem-vindo ao Mundo Pegajoso! Os Goominhos precisam da tua ajuda. Escolhe o primeiro nível!');
+  }
+};
+
+// ==================== BOOT ====================
+fitCanvas();
+fetch('assets/levels.json').then(r => r.json()).then(data => {
+  LEVELS = data;
+  LEVELS.forEach(lv => { const im = new Image(); im.src = 'assets/bg' + lv.id + '.jpg'; bgImgs[lv.id] = im; });
+  requestAnimationFrame(t => { lastT = t; tick(t); });
+});
+</script>
+</body>
+</html>
