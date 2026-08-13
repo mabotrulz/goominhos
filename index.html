@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-6</div>
+<div id="buildTag">v2026.08.13-7</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -249,6 +249,7 @@ const { Engine, Bodies, Body, Composite, Constraint, Events } = Matter;
 let engine = null, level = null, levelIdx = 0;
 let goos = [], links = [], terrainBodies = [], pipe = null;
 let sucked = 0, gameState = 'menu'; // menu | play | won | lost
+let pipeKeeper = null;
 let drag = null, particles = [], suckAnims = [];
 let idleTimer = 0, lastActivity = 0;
 
@@ -275,7 +276,7 @@ function loadLevel(idx) {
   levelIdx = idx; level = LEVELS[idx];
   engine = Engine.create({ enableSleeping: false });
   engine.gravity.y = 1;
-  goos = []; links = []; particles = []; suckAnims = []; sucked = 0; drag = null;
+  goos = []; links = []; particles = []; suckAnims = []; sucked = 0; drag = null; pipeKeeper = null;
   terrainBodies = level.terrain.map(poly => {
     const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
     const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
@@ -369,7 +370,7 @@ function removeGooLinks(g) {
   g.welds.slice().forEach(c => { Composite.remove(engine.world, c); links = links.filter(l => l !== c); });
   g.welds = [];
 }
-function structuralGoos() { return goos.filter(g => g.state === 'struct'); }
+function structuralGoos() { return goos.filter(g => g.state === 'struct' || g.state === 'pipe_anchor'); }
 
 // ==================== INPUT ====================
 function finishDrag() {
@@ -617,14 +618,28 @@ function loseGoo(g) {
   updateHud();
 }
 function suckGoo(g) {
-  g.state = 'sucked';
-  suckAnims.push({ x: g.body.position.x, y: g.body.position.y, t0: performance.now(), color: TYPES[g.type].color });
-  removeGooLinks(g);
-  Composite.remove(engine.world, g.body);
-  sucked++;
-  sfxSuck();
-  for (let i = 0; i < 6; i++) particles.push({ x: pipe.x, y: pipe.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, t0: performance.now(), life: 600, color: '#b2ff59' });
-  updateHud();
+  // first goo that reaches the pipe becomes a fixed "mouth anchor" (not absorbed)
+  if (!pipeKeeper) {
+    pipeKeeper = g;
+    g.state = 'pipe_anchor';
+    Body.setVelocity(g.body, { x: 0, y: 0 });
+    Body.setAngularVelocity(g.body, 0);
+    Body.setStatic(g.body, true);
+    sucked++;
+    sfxSuck();
+    for (let i = 0; i < 6; i++) particles.push({ x: pipe.x, y: pipe.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, t0: performance.now(), life: 600, color: '#b2ff59' });
+    updateHud();
+  } else {
+    g.state = 'sucked';
+    suckAnims.push({ x: g.body.position.x, y: g.body.position.y, t0: performance.now(), color: TYPES[g.type].color });
+    removeGooLinks(g);
+    Composite.remove(engine.world, g.body);
+    sucked++;
+    sfxSuck();
+    for (let i = 0; i < 6; i++) particles.push({ x: pipe.x, y: pipe.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, t0: performance.now(), life: 600, color: '#b2ff59' });
+    updateHud();
+  }
+
   if (sucked >= level.target && gameState === 'play') {
     gameState = 'won';
     progress.done[levelIdx] = true; saveProgress();
