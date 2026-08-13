@@ -2,8 +2,14 @@
 <html lang="pt-PT">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1c3a24">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e2417">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goominhos">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-512.png">
 <title>Goominhos — O Mundo Pegajoso</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟢</text></svg>">
 <style>
@@ -96,6 +102,19 @@
     0% { transform: translate(0,0) scale(0.4); opacity: 1; }
     100% { transform: translate(var(--dx), var(--dy)) scale(1.3) rotate(200deg); opacity: 0; }
   }
+
+  /* rotate hint: only on portrait phones */
+  #rotateHint {
+    display: none; position: fixed; inset: 0; z-index: 400;
+    background: rgba(10, 25, 15, 0.94); flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 30px;
+  }
+  #rotateHint .phone { font-size: 64px; animation: rotatePhone 1.6s ease-in-out infinite; }
+  @keyframes rotatePhone { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
+  #rotateHint p { margin-top: 18px; font-size: 20px; font-weight: 900; color: #aeea6e; }
+  @media (orientation: portrait) and (max-width: 700px) {
+    #rotateHint.show { display: flex; }
+  }
 </style>
 </head>
 <body>
@@ -122,6 +141,8 @@
   </div>
   <button class="hud-pill" id="retryBtn">↻</button>
 </div>
+
+<div id="rotateHint"><div class="phone">📱</div><p>Vira o telemóvel de lado<br>para jogar melhor! 🔄</p></div>
 
 <div class="overlay hidden" id="msgOverlay">
   <div class="box">
@@ -636,6 +657,7 @@ function showLevels() {
   gameState = 'menu';
   document.getElementById('gameWrap').classList.remove('active');
   document.getElementById('hud').classList.remove('active');
+  updateRotateHint();
   const g = document.getElementById('lvGrid'); g.innerHTML = '';
   LEVELS.forEach((lv, i) => {
     const c = document.createElement('button');
@@ -651,6 +673,7 @@ function showLevels() {
       document.getElementById('levelSelect').classList.add('hidden');
       document.getElementById('gameWrap').classList.add('active');
       document.getElementById('hud').classList.add('active');
+      updateRotateHint();
       loadLevel(i);
     };
     g.appendChild(c);
@@ -661,12 +684,37 @@ document.getElementById('homeBtn').onclick = () => { speechSynthesis.cancel(); s
 document.getElementById('retryBtn').onclick = () => { speechSynthesis.cancel(); loadLevel(levelIdx); };
 document.getElementById('startBtn').onclick = () => {
   initAudio();
+  goFullscreen();
   document.getElementById('startOverlay').classList.add('hidden');
   showLevels();
   if (!progress.done.some(Boolean)) {
     speak('Bem-vindo ao Mundo Pegajoso! Os Goominhos precisam da tua ajuda. Escolhe o primeiro nível!');
   }
 };
+// fullscreen + landscape lock (best-effort; iOS Safari only honors the PWA/manifest path)
+function goFullscreen() {
+  try {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req && !document.fullscreenElement) {
+      const p = req.call(el, { navigationUI: 'hide' });
+      if (p && p.then) p.then(lockLandscape).catch(() => {});
+      else lockLandscape();
+    }
+  } catch (e) {}
+}
+function lockLandscape() {
+  try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+}
+// rotate hint: show during gameplay on portrait phones
+const rotateHint = document.getElementById('rotateHint');
+function updateRotateHint() {
+  const inGame = document.getElementById('gameWrap').classList.contains('active');
+  rotateHint.classList.toggle('show', inGame);
+}
+window.addEventListener('orientationchange', () => setTimeout(() => { fitCanvas(); updateRotateHint(); }, 300));
+window.addEventListener('resize', updateRotateHint);
+document.addEventListener('fullscreenchange', () => setTimeout(fitCanvas, 300));
 
 // ==================== BOOT ====================
 fitCanvas();
