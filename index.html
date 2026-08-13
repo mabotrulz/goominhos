@@ -54,15 +54,17 @@
 
   /* LEVEL SELECT */
   #levelSelect {
-    padding: 18px; gap: 12px;
+    padding: max(10px, env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+    gap: 10px; justify-content: flex-start;
+    overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
     background: url('assets/menu.jpg') center / cover no-repeat #0e2417;
   }
   #levelSelect::before {
     content: ''; position: absolute; inset: 0; background: rgba(10, 25, 15, 0.82);
   }
   #levelSelect > * { position: relative; z-index: 1; }
-  #levelSelect h2 { color: #aeea6e; font-size: clamp(22px, 5.5vw, 34px); text-shadow: 0 2px 0 #2e5b23; }
-  .lv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(96vw, 900px); }
+  #levelSelect h2 { color: #aeea6e; font-size: clamp(22px, 5.5vw, 34px); text-shadow: 0 2px 0 #2e5b23; margin-top: 2px; }
+  .lv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(96vw, 900px); margin: 0 auto; }
   .lv-card {
     border: 3px solid #aeea6e; border-radius: 16px; overflow: hidden; cursor: pointer;
     background: #12301c; padding: 0; font-family: inherit; position: relative;
@@ -129,6 +131,12 @@
   #rotateHint p { margin-top: 18px; font-size: 20px; font-weight: 900; color: #aeea6e; }
   @media (orientation: portrait) and (max-width: 700px) {
     #rotateHint.show { display: flex; }
+  }
+  @media (max-height: 760px) {
+    #levelSelect h2 { font-size: clamp(18px, 4.6vw, 28px); }
+    .lv-grid { gap: 8px; }
+    .lv-card img { aspect-ratio: 16/9; }
+    .lv-card .lv-name { padding: 4px 4px; font-size: clamp(10px, 2.5vw, 13px); }
   }
 </style>
 </head>
