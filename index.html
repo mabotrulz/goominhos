@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-7</div>
+<div id="buildTag">v2026.08.13-8</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -230,7 +230,7 @@ const sfxSuck = () => { tone(900, 0.3, 'sine', 0, 0.08); tone(600, 0.3, 'sine', 
 const sfxWin = () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'sine', i * 0.13)); };
 
 // ==================== DATA ====================
-const WW = 1600, WH = 900, GOO_R = 26, LINK_DIST = 175;
+const WW = 1600, WH = 900, GOO_R = 26, LINK_DIST = 175, MAX_LINKS = 6;
 const TYPES = {
   basic:   { color: '#7ed957', dark: '#3e8e2f', density: 0.0016, nome: 'Goominho' },
   balloon: { color: '#ffd54f', dark: '#c79a1d', density: 0.0010, nome: 'Levinho' },
@@ -338,7 +338,7 @@ function makeGoo(type, x, y, state) {
 function addLink(ga, gb) {
   if (ga === gb) return null;
   if (ga.links.some(l => l.other === gb)) return null;
-  if (ga.links.length >= 4 || gb.links.length >= 4) return null;
+  if (ga.links.length >= MAX_LINKS || gb.links.length >= MAX_LINKS) return null;
   const d = Math.hypot(ga.body.position.x - gb.body.position.x, ga.body.position.y - gb.body.position.y);
   const c = Constraint.create({
     bodyA: ga.body, bodyB: gb.body, length: Math.max(d, GOO_R * 1.4),
@@ -349,6 +349,61 @@ function addLink(ga, gb) {
   gb.links.push({ c, other: ga });
   links.push(c);
   return c;
+}
+
+function planConnections(g) {
+  const p = g.body.position;
+  const near = structuralGoos()
+    .filter(s => s !== g)
+    .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
+    .filter(o => o.d < LINK_DIST + GOO_R + 42)
+    .sort((a, b) => a.d - b.d);
+
+  if (near.length === 0) return [];
+
+  const selected = [];
+  const counts = new Map();
+  counts.set(g, g.links.length);
+  for (const s of structuralGoos()) counts.set(s, s.links.length);
+
+  function canPair(node) {
+    const cg = counts.get(g) || 0;
+    const cn = counts.get(node) || 0;
+    if (cg >= MAX_LINKS || cn >= MAX_LINKS) return false;
+    if (g.links.some(l => l.other === node)) return false;
+    if (selected.includes(node)) return false;
+    return true;
+  }
+  function take(node) {
+    selected.push(node);
+    counts.set(g, (counts.get(g) || 0) + 1);
+    counts.set(node, (counts.get(node) || 0) + 1);
+  }
+
+  const first = near.find(o => canPair(o.s));
+  if (!first) return [];
+  take(first.s);
+
+  if ((counts.get(g) || 0) >= 2) return selected;
+
+  const fx = first.s.body.position.x - p.x;
+  const fy = first.s.body.position.y - p.y;
+  const fl = Math.hypot(fx, fy) || 1;
+  const ranked = near
+    .filter(o => o.s !== first.s)
+    .map(o => {
+      const vx = o.s.body.position.x - p.x;
+      const vy = o.s.body.position.y - p.y;
+      const vl = Math.hypot(vx, vy) || 1;
+      const cos = (fx * vx + fy * vy) / (fl * vl);
+      return { node: o.s, d: o.d, cos };
+    })
+    .sort((a, b) => (a.cos - b.cos) || (a.d - b.d));
+
+  const second = ranked.find(r => canPair(r.node));
+  if (second) take(second.node);
+
+  return selected;
 }
 function weld(g, terrainBody, worldPoint) {
   const wp = worldPoint || { x: g.body.position.x, y: g.body.position.y + GOO_R };
@@ -389,43 +444,17 @@ function finishDrag() {
   if (g.state !== 'drag') return;
   Body.setStatic(g.body, false);
   const p = g.body.position;
-  const near = structuralGoos()
-    .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
-    .filter(o => o.d < LINK_DIST + GOO_R + 42)
-    .sort((a, b) => a.d - b.d);
-  if (near.length === 0) {
+  const planned = planConnections(g);
+  if (planned.length === 0) {
     g.state = 'free'; // drop back
     return;
   }
   g.state = 'struct';
-
-  // link strategy: first nearest, second preferably opposite direction
   let made = 0;
-  let firstNode = null;
-  for (const o of near) {
-    if (addLink(g, o.s)) { made++; firstNode = o.s; break; }
-  }
+  for (const node of planned) if (addLink(g, node)) made++;
   if (made === 0) {
     g.state = 'free';
     return;
-  }
-  if (made < 2 && firstNode) {
-    const fx = firstNode.body.position.x - p.x;
-    const fy = firstNode.body.position.y - p.y;
-    const fl = Math.hypot(fx, fy) || 1;
-    const ranked = near
-      .filter(o => o.s !== firstNode)
-      .map(o => {
-        const vx = o.s.body.position.x - p.x;
-        const vy = o.s.body.position.y - p.y;
-        const vl = Math.hypot(vx, vy) || 1;
-        const cos = (fx * vx + fy * vy) / (fl * vl); // -1 = opposite, +1 = same direction
-        return { o, cos };
-      })
-      .sort((a, b) => (a.cos - b.cos) || (a.o.d - b.o.d));
-    for (const r of ranked) {
-      if (addLink(g, r.o.s)) { made++; break; }
-    }
   }
   // sticky: weld if touching terrain
   if (g.type === 'sticky') {
@@ -691,13 +720,11 @@ function render(now) {
   // drag preview
   if (drag && !drag.structTap) {
     const p = drag.g.body.position;
-    const near = structuralGoos()
-      .map(s => ({ s, d: Math.hypot(s.body.position.x - p.x, s.body.position.y - p.y) }))
-      .filter(o => o.d < LINK_DIST + GOO_R).sort((a, b) => a.d - b.d).slice(0, 2);
+    const near = planConnections(drag.g);
     ctx.setLineDash([10, 8]);
-    near.forEach(o => {
+    near.forEach(node => {
       ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(o.s.body.position.x, o.s.body.position.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(node.body.position.x, node.body.position.y); ctx.stroke();
     });
     ctx.setLineDash([]);
     ctx.strokeStyle = near.length ? 'rgba(178,255,89,0.9)' : 'rgba(255,120,120,0.7)';
