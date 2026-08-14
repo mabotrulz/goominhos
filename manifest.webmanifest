@@ -2,7 +2,7 @@
   "name": "Goominhos — O Mundo Pegajoso",
   "short_name": "Goominhos",
   "description": "Constrói pontes e torres com bolinhas de goo!",
-  "start_url": "./index.html?v=2026.08.13.14",
+  "start_url": "./index.html?v=2026.08.13.15",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "landscape",

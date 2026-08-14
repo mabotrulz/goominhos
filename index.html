@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-14</div>
+<div id="buildTag">v2026.08.13-15</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -443,7 +443,7 @@ function findPipeRoute() {
     cur = prev.get(cur) || null;
   }
   pathNodes.reverse();
-  return pathNodes.map(n => ({ x: n.body.position.x, y: n.body.position.y }));
+  return pathNodes;
 }
 
 function maybeAutoSendGoos(now) {
@@ -464,14 +464,16 @@ function maybeAutoSendGoos(now) {
 }
 
 function advanceCommuters(dt) {
-  const speed = 250; // px/s along structure
+  const speed = 250; // px/s along live structure links
   goos.forEach(g => {
     if (g.state !== 'commuting' || !g.route || g.route.length < 2) return;
     let remaining = speed * (dt / 1000);
     while (remaining > 0 && g.state === 'commuting') {
-      const a = g.route[g.routeSeg], b = g.route[g.routeSeg + 1];
-      if (!a || !b) { suckGoo(g); break; }
-      const dx = b.x - a.x, dy = b.y - a.y;
+      const aNode = g.route[g.routeSeg], bNode = g.route[g.routeSeg + 1];
+      if (!aNode || !bNode || !aNode.body || !bNode.body) { suckGoo(g); break; }
+      const ax = aNode.body.position.x, ay = aNode.body.position.y;
+      const bx = bNode.body.position.x, by = bNode.body.position.y;
+      const dx = bx - ax, dy = by - ay;
       const len = Math.hypot(dx, dy) || 1;
       const left = (1 - g.routeT) * len;
       if (remaining < left) {
@@ -485,8 +487,9 @@ function advanceCommuters(dt) {
       }
       if (g.state === 'commuting') {
         const p0 = g.route[g.routeSeg], p1 = g.route[g.routeSeg + 1];
-        const x = p0.x + (p1.x - p0.x) * g.routeT;
-        const y = p0.y + (p1.y - p0.y) * g.routeT;
+        if (!p0 || !p1 || !p0.body || !p1.body) { suckGoo(g); break; }
+        const x = p0.body.position.x + (p1.body.position.x - p0.body.position.x) * g.routeT;
+        const y = p0.body.position.y + (p1.body.position.y - p0.body.position.y) * g.routeT;
         Body.setPosition(g.body, { x, y });
       }
     }
