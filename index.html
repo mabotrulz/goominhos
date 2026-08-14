@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-10</div>
+<div id="buildTag">v2026.08.13-11</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -657,15 +657,31 @@ function tick(now) {
     if (g.state === 'lost' || g.state === 'sucked') return;
     if (g.state === 'commuting') return;
     const b = g.body;
-    // balloons: free ones float playfully; structural ones provide gentle lift (not rocket launch)
+    // balloons: free ones hover and are easy to catch; structural balloons lift gently without stealing the whole build
     if (g.type === 'balloon') {
       if (g.state === 'free' && !drag) {
-        if (b.position.y > 240) Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00110 });
-        else Body.applyForce(b, b.position, { x: 0, y: b.mass * 0.00085 });
+        // soft vertical hover band
+        if (b.position.y > 255) Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00095 });
+        else if (b.position.y < 175) Body.applyForce(b, b.position, { x: 0, y: b.mass * 0.00070 });
+
+        // don't "run away": when near structure, drift toward it and damp horizontal speed
+        const nearStruct = structuralGoos()
+          .map(s => ({ s, d: Math.hypot(s.body.position.x - b.position.x, s.body.position.y - b.position.y) }))
+          .sort((a, b) => a.d - b.d)[0];
+        if (nearStruct && nearStruct.d < 280) {
+          const dx = nearStruct.s.body.position.x - b.position.x;
+          Body.applyForce(b, b.position, { x: Math.sign(dx) * 0.00012 * b.mass, y: 0 });
+          if (Math.abs(b.velocity.x) > 1.4) Body.setVelocity(b, { x: Math.sign(b.velocity.x) * 1.4, y: b.velocity.y });
+        }
+        if (b.velocity.y < -2.2) Body.setVelocity(b, { x: b.velocity.x, y: -2.2 });
       } else if (g.state === 'struct' || g.state === 'pipe_anchor') {
-        const lift = (b.position.y > 130) ? -b.mass * 0.00042 : b.mass * 0.00020;
-        Body.applyForce(b, b.position, { x: 0, y: lift });
-        if (b.velocity.y < -3.2) Body.setVelocity(b, { x: b.velocity.x, y: -3.2 });
+        // one/two-link balloons can help lift; dense structures should stay stable
+        const linkCount = g.links ? g.links.length : 0;
+        if (linkCount <= 2) {
+          const lift = (b.position.y > 150) ? -b.mass * 0.00028 : b.mass * 0.00016;
+          Body.applyForce(b, b.position, { x: 0, y: lift });
+        }
+        if (b.velocity.y < -2.0) Body.setVelocity(b, { x: b.velocity.x, y: -2.0 });
       }
     }
     // wind zone
@@ -673,8 +689,8 @@ function tick(now) {
         b.position.y > level.wind.y0 && b.position.y < level.wind.y1 && g.state !== 'free') {
       Body.applyForce(b, b.position, { x: level.wind.fx * b.mass, y: 0 });
     }
-    // free goos: lively but NOT suicidal — they roam near spawn and avoid cliff dives
-    if (g.state === 'free' && (!drag || drag.g !== g)) {
+    // free goos (except balloons): lively but NOT suicidal — they roam near spawn and avoid cliff dives
+    if (g.state === 'free' && g.type !== 'balloon' && (!drag || drag.g !== g)) {
       const sx = level.spawn[0], sy = level.spawn[1];
       const penHalf = 185;
       const minX = Math.max(65, sx - penHalf), maxX = Math.min(WW - 65, sx + penHalf);
@@ -696,16 +712,14 @@ function tick(now) {
       const towardSpawn = Math.sign(sx - b.position.x) || 1;
       const walkForce = (g.type === 'heavy') ? 0.00020 : 0.00033;
       if (!hasSupportSoon) {
-        // no lift here: just steer back horizontally so they don't stack-launch into the sky
         Body.applyForce(b, b.position, { x: towardSpawn * 0.00085 * b.mass, y: 0 });
       } else {
         Body.applyForce(b, b.position, { x: g.aiDir * walkForce * b.mass, y: 0 });
       }
 
-      // small hops around platform only (don't keep climbing forever)
       const nearGroundBand = b.position.y > sy - 20 && b.position.y < sy + 120;
       if (nearGroundBand && t0 > g.aiHopAt && Math.abs(b.velocity.y) < 1.2) {
-        const hop = (g.type === 'heavy') ? -0.00095 : (g.type === 'balloon' ? -0.00115 : -0.00105);
+        const hop = (g.type === 'heavy') ? -0.00095 : -0.00105;
         Body.applyForce(b, b.position, { x: 0, y: hop * b.mass });
         g.aiHopAt = t0 + 700 + Math.random() * 1700;
       }
