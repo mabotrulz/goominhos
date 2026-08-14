@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-17</div>
+<div id="buildTag">v2026.08.13-18</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -451,7 +451,19 @@ function maybeAutoSendGoos(now) {
   if (now < nextAutoSendAt) return;
   const route = findPipeRoute();
   if (!route || route.length < 2) return;
-  const g = goos.find(x => x.state === 'free');
+
+  // only dispatch from the spawn pen; detached goos dropped on the structure should stay where released
+  const sx = level.spawn[0], sy = level.spawn[1];
+  const freeNearSpawn = goos
+    .filter(x => x.state === 'free')
+    .filter(x => Math.hypot(x.body.position.x - sx, x.body.position.y - sy) < 240)
+    .sort((a, b) => {
+      const da = Math.hypot(a.body.position.x - sx, a.body.position.y - sy);
+      const db = Math.hypot(b.body.position.x - sx, b.body.position.y - sy);
+      return da - db;
+    });
+
+  const g = freeNearSpawn[0];
   if (!g) return;
   g.state = 'commuting';
   g.route = route;
