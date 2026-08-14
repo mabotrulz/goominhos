@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-9</div>
+<div id="buildTag">v2026.08.13-10</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -657,13 +657,15 @@ function tick(now) {
     if (g.state === 'lost' || g.state === 'sucked') return;
     if (g.state === 'commuting') return;
     const b = g.body;
-    // balloons lift (free ones hover in a band so they never escape)
+    // balloons: free ones float playfully; structural ones provide gentle lift (not rocket launch)
     if (g.type === 'balloon') {
       if (g.state === 'free' && !drag) {
-        if (b.position.y > 240) Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00115 });
-        else Body.applyForce(b, b.position, { x: 0, y: b.mass * 0.0009 });
-      } else {
-        Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00115 });
+        if (b.position.y > 240) Body.applyForce(b, b.position, { x: 0, y: -b.mass * 0.00110 });
+        else Body.applyForce(b, b.position, { x: 0, y: b.mass * 0.00085 });
+      } else if (g.state === 'struct' || g.state === 'pipe_anchor') {
+        const lift = (b.position.y > 130) ? -b.mass * 0.00042 : b.mass * 0.00020;
+        Body.applyForce(b, b.position, { x: 0, y: lift });
+        if (b.velocity.y < -3.2) Body.setVelocity(b, { x: b.velocity.x, y: -3.2 });
       }
     }
     // wind zone
@@ -721,7 +723,8 @@ function tick(now) {
   // idle fail detection
   if (gameState === 'play') {
     const free = goos.filter(g => g.state === 'free' || g.state === 'drag' || g.state === 'commuting').length;
-    if (free === 0 && performance.now() - lastActivity > 3500 && sucked < level.target) {
+    const canStillRearrange = goos.some(g => g.state === 'struct');
+    if (free === 0 && !canStillRearrange && performance.now() - lastActivity > 3500 && sucked < level.target) {
       gameState = 'lost';
       showMsg('Ups!', '', 'Ficaste sem Goominhos! Não faz mal — tenta outra vez!', '↻ Outra vez', () => loadLevel(levelIdx), 'Níveis', showLevels);
       speak('Ups! Ficaste sem Goominhos! Não faz mal, tenta outra vez!');
