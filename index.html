@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-15</div>
+<div id="buildTag">v2026.08.13-17</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -680,12 +680,22 @@ function tick(now) {
       } else if (g.state === 'struct' || g.state === 'pipe_anchor') {
         // connected balloons should ALWAYS float; scale lift with connectivity so they don't hoist whole bridges
         const linkCount = Math.max(1, (g.links ? g.links.length : 1));
-        const up = Math.max(0.00032, 0.00190 / (1 + 0.55 * (linkCount - 1)));
+        const up = Math.max(0.00110, 0.00480 / (1 + 0.75 * (linkCount - 1)));
         Body.applyForce(b, b.position, { x: 0, y: -b.mass * up });
+
+        // transfer a small part of buoyancy into directly linked structure so bridges can actually lift
+        if (g.links && g.links.length) {
+          const share = (b.mass * up * 0.24) / g.links.length;
+          g.links.forEach(rec => {
+            const o = rec.other;
+            if (!o || !o.body || o.state === 'lost' || o.state === 'sucked') return;
+            Body.applyForce(o.body, o.body.position, { x: 0, y: -share });
+          });
+        }
 
         // only gentle cap near top of screen to avoid escape, never force downward at normal heights
         if (b.position.y < 90) Body.applyForce(b, b.position, { x: 0, y: b.mass * 0.00010 });
-        if (b.velocity.y < -2.0) Body.setVelocity(b, { x: b.velocity.x, y: -2.0 });
+        if (b.velocity.y < -2.8) Body.setVelocity(b, { x: b.velocity.x, y: -2.8 });
       }
     }
     // wind zone
