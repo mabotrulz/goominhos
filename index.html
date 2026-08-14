@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-18</div>
+<div id="buildTag">v2026.08.13-19</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -254,6 +254,11 @@ let nextAutoSendAt = 0;
 let drag = null, particles = [], suckAnims = [];
 let idleTimer = 0, lastActivity = 0;
 
+// Collision groups: free goos should not push structural goos around
+const CAT_TERRAIN = 0x0001;
+const CAT_STRUCT  = 0x0002;
+const CAT_FREE    = 0x0004;
+
 // ==================== CANVAS ====================
 const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
 let scale = 1, offX = 0, offY = 0;
@@ -333,8 +338,35 @@ function makeGoo(type, x, y, state) {
     aiHopAt: performance.now() + 700 + Math.random() * 1800,
   };
   b.gooRef = g;
+  applyCollisionProfile(g);
   goos.push(g); Composite.add(engine.world, b);
   return g;
+}
+
+function applyCollisionProfile(g) {
+  const b = g.body;
+  if (!b) return;
+  if (g.state === 'commuting') {
+    b.isSensor = true;
+    b.collisionFilter.category = CAT_FREE;
+    b.collisionFilter.mask = 0;
+    return;
+  }
+  b.isSensor = false;
+  if (g.state === 'free') {
+    // free roamers collide with terrain and each other, but not structure
+    b.collisionFilter.category = CAT_FREE;
+    b.collisionFilter.mask = CAT_TERRAIN | CAT_FREE;
+  } else {
+    // structural/drag/pipe_anchor collide with terrain+structure, but ignore free roamers
+    b.collisionFilter.category = CAT_STRUCT;
+    b.collisionFilter.mask = CAT_TERRAIN | CAT_STRUCT;
+  }
+}
+
+function setGooState(g, newState) {
+  g.state = newState;
+  applyCollisionProfile(g);
 }
 function addLink(ga, gb) {
   if (ga === gb) return null;
@@ -465,7 +497,7 @@ function maybeAutoSendGoos(now) {
 
   const g = freeNearSpawn[0];
   if (!g) return;
-  g.state = 'commuting';
+  setGooState(g, 'commuting');
   g.route = route;
   g.routeSeg = 0;
   g.routeT = 0;
@@ -538,7 +570,7 @@ function finishDrag() {
   if (wasTap && g.state === 'struct') {
     // recall: pop back to free pool
     if (g.welds.length && structuralGoos().filter(s => s.welds.length).length <= 2) { return; } // keep anchors
-    removeGooLinks(g); g.state = 'free';
+    removeGooLinks(g); setGooState(g, 'free');
     Body.setVelocity(g.body, { x: (Math.random() - 0.5) * 4, y: -6 });
     sfxPop();
     return;
@@ -548,14 +580,14 @@ function finishDrag() {
   const p = g.body.position;
   const planned = planConnections(g);
   if (planned.length === 0) {
-    g.state = 'free'; // drop back
+    setGooState(g, 'free'); // drop back
     return;
   }
-  g.state = 'struct';
+  setGooState(g, 'struct');
   let made = 0;
   for (const node of planned) if (addLink(g, node)) made++;
   if (made === 0) {
-    g.state = 'free';
+    setGooState(g, 'free');
     return;
   }
   // sticky: weld if touching terrain
@@ -581,7 +613,7 @@ canvas.addEventListener('pointerdown', e => {
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   lastActivity = performance.now();
   if (g.state === 'free') {
-    g.state = 'drag'; drag = { g, moved: false, pointerId: e.pointerId };
+    setGooState(g, 'drag'); drag = { g, moved: false, pointerId: e.pointerId };
     Body.setStatic(g.body, true);
     Body.setVelocity(g.body, { x: 0, y: 0 }); Body.setAngularVelocity(g.body, 0);
     sfxGrab();
@@ -603,7 +635,7 @@ canvas.addEventListener('pointermove', e => {
         return;
       }
       removeGooLinks(drag.g);
-      drag.g.state = 'drag';
+      setGooState(drag.g, 'drag');
       drag.structTap = false;
       drag.moved = true;
       Body.setStatic(drag.g.body, true);
@@ -776,7 +808,7 @@ function tick(now) {
   render(now);
 }
 function loseGoo(g) {
-  g.state = 'lost';
+  setGooState(g, 'lost');
   removeGooLinks(g);
   Composite.remove(engine.world, g.body);
   sfxPop();
@@ -786,7 +818,7 @@ function suckGoo(g) {
   // first goo that reaches the pipe becomes a fixed "mouth anchor" (not absorbed)
   if (!pipeKeeper) {
     pipeKeeper = g;
-    g.state = 'pipe_anchor';
+    setGooState(g, 'pipe_anchor');
     Body.setVelocity(g.body, { x: 0, y: 0 });
     Body.setAngularVelocity(g.body, 0);
     Body.setStatic(g.body, true);
@@ -795,7 +827,7 @@ function suckGoo(g) {
     for (let i = 0; i < 6; i++) particles.push({ x: pipe.x, y: pipe.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, t0: performance.now(), life: 600, color: '#b2ff59' });
     updateHud();
   } else {
-    g.state = 'sucked';
+    setGooState(g, 'sucked');
     suckAnims.push({ x: g.body.position.x, y: g.body.position.y, t0: performance.now(), color: TYPES[g.type].color });
     removeGooLinks(g);
     Composite.remove(engine.world, g.body);
