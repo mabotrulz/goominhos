@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-8</div>
+<div id="buildTag">v2026.08.13-9</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -250,6 +250,7 @@ let engine = null, level = null, levelIdx = 0;
 let goos = [], links = [], terrainBodies = [], pipe = null;
 let sucked = 0, gameState = 'menu'; // menu | play | won | lost
 let pipeKeeper = null;
+let nextAutoSendAt = 0;
 let drag = null, particles = [], suckAnims = [];
 let idleTimer = 0, lastActivity = 0;
 
@@ -276,7 +277,7 @@ function loadLevel(idx) {
   levelIdx = idx; level = LEVELS[idx];
   engine = Engine.create({ enableSleeping: false });
   engine.gravity.y = 1;
-  goos = []; links = []; particles = []; suckAnims = []; sucked = 0; drag = null; pipeKeeper = null;
+  goos = []; links = []; particles = []; suckAnims = []; sucked = 0; drag = null; pipeKeeper = null; nextAutoSendAt = 0;
   terrainBodies = level.terrain.map(poly => {
     const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
     const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
@@ -404,6 +405,92 @@ function planConnections(g) {
   if (second) take(second.node);
 
   return selected;
+}
+
+function findPipeRoute() {
+  const nodes = structuralGoos();
+  if (nodes.length < 3) return null;
+  const start = nodes.reduce((a, b) => {
+    const da = Math.hypot(a.body.position.x - level.spawn[0], a.body.position.y - level.spawn[1]);
+    const db = Math.hypot(b.body.position.x - level.spawn[0], b.body.position.y - level.spawn[1]);
+    return db < da ? b : a;
+  });
+  const end = nodes.reduce((a, b) => {
+    const da = Math.hypot(a.body.position.x - pipe.x, a.body.position.y - pipe.y);
+    const db = Math.hypot(b.body.position.x - pipe.x, b.body.position.y - pipe.y);
+    return db < da ? b : a;
+  });
+  const endDist = Math.hypot(end.body.position.x - pipe.x, end.body.position.y - pipe.y);
+  if (endDist > 170) return null;
+
+  const q = [start], seen = new Set([start]), prev = new Map();
+  while (q.length) {
+    const cur = q.shift();
+    if (cur === end) break;
+    for (const rec of cur.links) {
+      const nxt = rec.other;
+      if (nxt.state !== 'struct' && nxt.state !== 'pipe_anchor') continue;
+      if (seen.has(nxt)) continue;
+      seen.add(nxt); prev.set(nxt, cur); q.push(nxt);
+    }
+  }
+  if (!seen.has(end)) return null;
+
+  const pathNodes = [];
+  let cur = end;
+  while (cur) {
+    pathNodes.push(cur);
+    cur = prev.get(cur) || null;
+  }
+  pathNodes.reverse();
+  return pathNodes.map(n => ({ x: n.body.position.x, y: n.body.position.y }));
+}
+
+function maybeAutoSendGoos(now) {
+  if (gameState !== 'play') return;
+  if (now < nextAutoSendAt) return;
+  const route = findPipeRoute();
+  if (!route || route.length < 2) return;
+  const g = goos.find(x => x.state === 'free');
+  if (!g) return;
+  g.state = 'commuting';
+  g.route = route;
+  g.routeSeg = 0;
+  g.routeT = 0;
+  Body.setStatic(g.body, true);
+  Body.setVelocity(g.body, { x: 0, y: 0 });
+  Body.setAngularVelocity(g.body, 0);
+  nextAutoSendAt = now + 720;
+}
+
+function advanceCommuters(dt) {
+  const speed = 250; // px/s along structure
+  goos.forEach(g => {
+    if (g.state !== 'commuting' || !g.route || g.route.length < 2) return;
+    let remaining = speed * (dt / 1000);
+    while (remaining > 0 && g.state === 'commuting') {
+      const a = g.route[g.routeSeg], b = g.route[g.routeSeg + 1];
+      if (!a || !b) { suckGoo(g); break; }
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const left = (1 - g.routeT) * len;
+      if (remaining < left) {
+        g.routeT += remaining / len;
+        remaining = 0;
+      } else {
+        remaining -= left;
+        g.routeSeg++;
+        g.routeT = 0;
+        if (g.routeSeg >= g.route.length - 1) { suckGoo(g); break; }
+      }
+      if (g.state === 'commuting') {
+        const p0 = g.route[g.routeSeg], p1 = g.route[g.routeSeg + 1];
+        const x = p0.x + (p1.x - p0.x) * g.routeT;
+        const y = p0.y + (p1.y - p0.y) * g.routeT;
+        Body.setPosition(g.body, { x, y });
+      }
+    }
+  });
 }
 function weld(g, terrainBody, worldPoint) {
   const wp = worldPoint || { x: g.body.position.x, y: g.body.position.y + GOO_R };
@@ -561,8 +648,14 @@ function tick(now) {
       if (g.type === 'sticky' && g.state === 'struct' && g.welds.length < 2) stickyWeldNearby(g);
     });
   }
+  if (gameState === 'play') {
+    maybeAutoSendGoos(t0);
+    advanceCommuters(dt);
+  }
+
   goos.forEach(g => {
     if (g.state === 'lost' || g.state === 'sucked') return;
+    if (g.state === 'commuting') return;
     const b = g.body;
     // balloons lift (free ones hover in a band so they never escape)
     if (g.type === 'balloon') {
@@ -627,7 +720,7 @@ function tick(now) {
   });
   // idle fail detection
   if (gameState === 'play') {
-    const free = goos.filter(g => g.state === 'free' || g.state === 'drag').length;
+    const free = goos.filter(g => g.state === 'free' || g.state === 'drag' || g.state === 'commuting').length;
     if (free === 0 && performance.now() - lastActivity > 3500 && sucked < level.target) {
       gameState = 'lost';
       showMsg('Ups!', '', 'Ficaste sem Goominhos! Não faz mal — tenta outra vez!', '↻ Outra vez', () => loadLevel(levelIdx), 'Níveis', showLevels);
@@ -685,7 +778,7 @@ function suckGoo(g) {
   }
 }
 function updateHud() {
-  const free = goos.filter(g => g.state === 'free' || g.state === 'drag').length;
+  const free = goos.filter(g => g.state === 'free' || g.state === 'drag' || g.state === 'commuting').length;
   document.getElementById('hudPipe').textContent = '🕳️ ' + sucked + '/' + level.target;
   document.getElementById('hudGoos').textContent = '🟢 ' + free;
 }
