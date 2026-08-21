@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Goominhos">
-<link rel="manifest" href="manifest.webmanifest?v=2026.08.21.23">
+<link rel="manifest" href="manifest.webmanifest?v=2026.08.21.24">
 <link rel="apple-touch-icon" href="assets/icon-512.png">
 <title>Goominhos — O Mundo Pegajoso</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟢</text></svg>">
@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.21-23</div>
+<div id="buildTag">v2026.08.21-24</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -823,6 +823,19 @@ function tick(now) {
   render(now);
 }
 function loseGoo(g) {
+  // Vendaval rule: never delete goos; drop them back on a safe platform.
+  if (level && level.wind) {
+    removeGooLinks(g);
+    setGooState(g, 'free');
+    Body.setStatic(g.body, false);
+    const sx = level.spawn[0], sy = level.spawn[1];
+    const nx = Math.max(90, Math.min(WW - 90, sx + (Math.random() - 0.5) * 80));
+    const ny = Math.max(120, sy - 30);
+    Body.setPosition(g.body, { x: nx, y: ny });
+    Body.setVelocity(g.body, { x: 0, y: 0 });
+    updateHud();
+    return;
+  }
   setGooState(g, 'lost');
   removeGooLinks(g);
   Composite.remove(engine.world, g.body);
