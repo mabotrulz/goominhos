@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.21-20</div>
+<div id="buildTag">v2026.08.21-21</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -783,8 +783,21 @@ function tick(now) {
       }
     }
     // fell off the world
-    if (b.position.y > WH + 120 || b.position.x < -120 || b.position.x > WW + 120) {
-      loseGoo(g);
+    if (b.position.y > WH + 120 || b.position.y < -120 || b.position.x < -120 || b.position.x > WW + 120) {
+      if (level.wind) {
+        // vendaval safety: never despawn goos — drop them back to the floor area
+        const nx = Math.max(90, Math.min(WW - 90, b.position.x));
+        const ny = WH - 120;
+        if (g.state === 'struct' || g.state === 'pipe_anchor' || g.state === 'commuting') {
+          removeGooLinks(g);
+          setGooState(g, 'free');
+          Body.setStatic(g.body, false);
+        }
+        Body.setPosition(g.body, { x: nx, y: ny });
+        Body.setVelocity(g.body, { x: 0, y: 0 });
+      } else {
+        loseGoo(g);
+      }
     }
     // pipe suck
     if (g.state === 'struct' && gameState === 'play') {

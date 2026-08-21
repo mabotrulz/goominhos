@@ -11,5 +11,5 @@
 <path d="M900,200 q20,60 -10,120 q-20,50 5,100" stroke="#4caf50" stroke-width="10" fill="none"/>
 <g fill="#ffffff"><ellipse cx="300" cy="120" rx="70" ry="38.5"/><ellipse cx="251.0" cy="134.0" rx="42.0" ry="28.0"/><ellipse cx="349.0" cy="134.0" rx="42.0" ry="28.0"/></g>
 <circle class="pipe" cx="1000" cy="210" r="34" fill="#37474f" stroke="#263238" stroke-width="8"/>
-<circle class="spawn" cx="300" cy="740" r="10" fill="#e91e63"/>
+<circle class="spawn" cx="960" cy="740" r="10" fill="#e91e63"/>
 </svg>
