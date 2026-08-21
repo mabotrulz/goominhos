@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.13-19</div>
+<div id="buildTag">v2026.08.21-20</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -744,7 +744,7 @@ function tick(now) {
     }
     // wind zone
     if (level.wind && b.position.x > level.wind.x0 && b.position.x < level.wind.x1 &&
-        b.position.y > level.wind.y0 && b.position.y < level.wind.y1 && g.state !== 'free') {
+        b.position.y > level.wind.y0 && b.position.y < level.wind.y1 && (g.state === 'free' || g.state === 'drag')) {
       Body.applyForce(b, b.position, { x: level.wind.fx * b.mass, y: 0 });
     }
     // free goos (except balloons): lively but NOT suicidal — they roam near spawn and avoid cliff dives

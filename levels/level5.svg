@@ -3,6 +3,7 @@
 <polygon class="boundary" points="0,820 1600,820 1600,900 0,900" fill="#7a9b4d" stroke="#5b7a36" stroke-width="6"/>
 <polygon class="boundary" points="820,150 900,150 900,820 820,820" fill="#7a9b4d" stroke="#5b7a36" stroke-width="6"/>
 <polygon class="boundary" points="1100,150 1180,150 1180,820 1100,820" fill="#7a9b4d" stroke="#5b7a36" stroke-width="6"/>
+<polygon class="boundary" points="760,0 1240,0 1240,160 760,160" fill="#7a9b4d" stroke="#5b7a36" stroke-width="6"/>
 <polygon points="860,650 878,700 842,700" fill="#b39ddb"/><polygon points="890,666 904,700 876,700" fill="#9575cd"/>
 <polygon points="1140,450 1158,500 1122,500" fill="#b39ddb"/><polygon points="1170,466 1184,500 1156,500" fill="#9575cd"/>
 <rect x="192" y="794" width="16" height="26" fill="#fff3e0"/><circle cx="200" cy="790" r="22" fill="#e57373"/>
