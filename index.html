@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Goominhos">
-<link rel="manifest" href="manifest.webmanifest?v=2026.08.21.24">
+<link rel="manifest" href="manifest.webmanifest?v=2026.08.21.25">
 <link rel="apple-touch-icon" href="assets/icon-512.png">
 <title>Goominhos — O Mundo Pegajoso</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟢</text></svg>">
@@ -151,7 +151,7 @@
 </head>
 <body>
 
-<div id="buildTag">v2026.08.21-24</div>
+<div id="buildTag">v2026.08.21-25</div>
 
 <div class="overlay" id="startOverlay">
   <h1>Goominhos<br><span style="font-size:0.45em; color:#d7f0c0">O Mundo Pegajoso</span></h1>
@@ -704,6 +704,23 @@ function tick(now) {
     if (g.state === 'lost' || g.state === 'sucked') return;
     if (g.state === 'commuting') return;
     const b = g.body;
+
+    // vendaval recovery flight: keep goo visible and glide it back (no teleport pop)
+    if (g.recovering) {
+      const p = g.recovering;
+      const u = Math.min(1, (t0 - p.t0) / p.dur);
+      const e = 1 - Math.pow(1 - u, 3); // ease-out cubic
+      const x = p.x0 + (p.x1 - p.x0) * e;
+      const y = p.y0 + (p.y1 - p.y0) * e;
+      Body.setPosition(b, { x, y });
+      Body.setVelocity(b, { x: 0, y: 0 });
+      if (u >= 1) {
+        delete g.recovering;
+        Body.setStatic(b, false);
+        Body.setVelocity(b, { x: 0, y: 1.2 });
+      }
+      return;
+    }
     // balloons: free ones hover and are easy to catch; structural balloons lift gently without stealing the whole build
     if (g.type === 'balloon') {
       if (g.state === 'free' && !drag) {
@@ -785,18 +802,7 @@ function tick(now) {
     // fell off the world
     if (b.position.y > WH + 120 || b.position.y < -120 || b.position.x < -120 || b.position.x > WW + 120) {
       if (level.wind) {
-        // vendaval safety: never despawn goos — drop them back to the floor area
-        const sx = level.spawn[0], sy = level.spawn[1];
-        // respawn on a safe platform near spawn (not in the middle chasm)
-        const nx = Math.max(90, Math.min(WW - 90, sx + (Math.random() - 0.5) * 80));
-        const ny = Math.max(120, sy - 30);
-        if (g.state === 'struct' || g.state === 'pipe_anchor' || g.state === 'commuting') {
-          removeGooLinks(g);
-          setGooState(g, 'free');
-          Body.setStatic(g.body, false);
-        }
-        Body.setPosition(g.body, { x: nx, y: ny });
-        Body.setVelocity(g.body, { x: 0, y: 0 });
+        recoverWindGoo(g);
       } else {
         loseGoo(g);
       }
@@ -822,17 +828,28 @@ function tick(now) {
   suckAnims = suckAnims.filter(s => now - s.t0 < 450);
   render(now);
 }
+function recoverWindGoo(g) {
+  removeGooLinks(g);
+  setGooState(g, 'free');
+
+  // Destination: safe ground near current side (never in the center chasm).
+  let tx = Math.max(90, Math.min(WW - 90, g.body.position.x));
+  if (tx > 620 && tx < 1220) tx = (tx < WW / 2) ? 560 : 1260;
+  const ty = WH - 90;
+
+  // Start from clamped in-view position so player sees a smooth "blown back" flight.
+  const x0 = Math.max(30, Math.min(WW - 30, g.body.position.x));
+  const y0 = Math.max(30, Math.min(WH - 30, g.body.position.y));
+
+  Body.setStatic(g.body, true);
+  Body.setPosition(g.body, { x: x0, y: y0 });
+  Body.setVelocity(g.body, { x: 0, y: 0 });
+  g.recovering = { x0, y0, x1: tx, y1: ty, t0: performance.now(), dur: 720 };
+}
 function loseGoo(g) {
-  // Vendaval rule: never delete goos; drop them back on a safe platform.
+  // Vendaval rule: never delete goos.
   if (level && level.wind) {
-    removeGooLinks(g);
-    setGooState(g, 'free');
-    Body.setStatic(g.body, false);
-    const sx = level.spawn[0], sy = level.spawn[1];
-    const nx = Math.max(90, Math.min(WW - 90, sx + (Math.random() - 0.5) * 80));
-    const ny = Math.max(120, sy - 30);
-    Body.setPosition(g.body, { x: nx, y: ny });
-    Body.setVelocity(g.body, { x: 0, y: 0 });
+    recoverWindGoo(g);
     updateHud();
     return;
   }
